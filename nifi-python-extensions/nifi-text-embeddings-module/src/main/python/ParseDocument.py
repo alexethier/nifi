@@ -16,10 +16,12 @@
 import io
 import json
 from typing import List
+from collections import defaultdict
 
 from nifiapi.flowfiletransform import FlowFileTransform, FlowFileTransformResult
 from nifiapi.properties import PropertyDescriptor, StandardValidators, PropertyDependency
 
+AUTO = "Auto"
 PLAIN_TEXT = "Plain Text"
 HTML = "HTML"
 MARKDOWN = "Markdown"
@@ -27,6 +29,20 @@ PDF = "PDF"
 EXCEL = "Microsoft Excel"
 POWERPOINT = "Microsoft PowerPoint"
 WORD = "Microsoft Word"
+
+MIME_TYPE_MAP = defaultdict(lambda: PLAIN_TEXT)
+MIME_TYPE_MAP["application/x-pdf"] = PDF
+MIME_TYPE_MAP["application/pdf"] = PDF
+MIME_TYPE_MAP["text/html"] = HTML
+MIME_TYPE_MAP["text/markdown"] = MARKDOWN
+MIME_TYPE_MAP["text/x-markdown"] = MARKDOWN
+MIME_TYPE_MAP["application/vnd.ms-excel"] = EXCEL
+MIME_TYPE_MAP["application/vnd.ms-powerpoint"] = EXCEL
+MIME_TYPE_MAP["application/vnd.ms-powerpoint.presentation.macroEnabled.12"] = POWERPOINT
+MIME_TYPE_MAP["application/vnd.openxmlformats-officedocument.presentationml.presentation"] = POWERPOINT
+MIME_TYPE_MAP["application/msword"] = WORD
+MIME_TYPE_MAP["application/vnd.ms-word.document.macroEnabled.12"] = WORD
+MIME_TYPE_MAP["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = WORD
 
 PARSING_STRATEGY_AUTO = "Automatic"
 PARSING_STRATEGY_HIGH_RES = "High Resolution"
@@ -58,10 +74,11 @@ class ParseDocument(FlowFileTransform):
     INPUT_FORMAT = PropertyDescriptor(
         name="Input Format",
         description="""The format of the input FlowFile. This dictates which TextLoader will be used to parse the input.
-            Note that in order to process images or extract tables from PDF files,you must have both 'poppler' and 'tesseract' installed on your system.""",
-        allowable_values=[PLAIN_TEXT, HTML, MARKDOWN, PDF, WORD, EXCEL, POWERPOINT],
+            Auto will use the flowfile's 'mime.type' attribute to select the input format and will otherwise default to Plain Text.
+            Note that in order to process images or extract tables from PDF files, you must have both 'poppler' and 'tesseract' installed on your system.""",
+        allowable_values=[AUTO, PLAIN_TEXT, HTML, MARKDOWN, PDF, WORD, EXCEL, POWERPOINT],
         required=True,
-        default_value=PLAIN_TEXT
+        default_value=AUTO
     )
     PDF_PARSING_STRATEGY = PropertyDescriptor(
         name="PDF Parsing Strategy",
@@ -143,6 +160,7 @@ class ParseDocument(FlowFileTransform):
     def __init__(self, **kwargs):
         pass
 
+
     def getPropertyDescriptors(self):
         return self.property_descriptors
 
@@ -157,6 +175,7 @@ class ParseDocument(FlowFileTransform):
         if nifi_value == PARSING_STRATEGY_AUTO:
             return "auto"
         return default_value
+
 
     def get_languages(self, nifi_value: str) -> List[str]:
         return [
@@ -176,6 +195,10 @@ class ParseDocument(FlowFileTransform):
             metadata[trimmed] = value
 
         input_format = context.getProperty(self.INPUT_FORMAT).evaluateAttributeExpressions(flowFile).getValue()
+        if input_format == AUTO:
+            mime_type = flowFile.getAttribute('mime.type')
+            input_format = MIME_TYPE_MAP[mime_type]
+
         if input_format == PLAIN_TEXT:
             return [Document(page_content=flowFile.getContentsAsBytes().decode('utf-8'), metadata=metadata)]
 
@@ -232,7 +255,6 @@ class ParseDocument(FlowFileTransform):
                     doc.metadata.update(metadata)
 
         return documents
-
 
 
     def to_json(self, docs) -> str:
