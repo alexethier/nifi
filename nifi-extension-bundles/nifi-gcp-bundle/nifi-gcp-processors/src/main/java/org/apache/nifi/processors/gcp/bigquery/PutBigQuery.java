@@ -38,6 +38,7 @@ import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ProtoSchemaConverter;
 import com.google.cloud.bigquery.storage.v1.StorageError;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
@@ -58,6 +59,7 @@ import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.exception.ProcessException;
@@ -90,11 +92,11 @@ import java.util.concurrent.atomic.AtomicReference;
 @TriggerSerially
 @Tags({"google", "google cloud", "bq", "bigquery"})
 @CapabilityDescription("Writes the contents of a FlowFile to a Google BigQuery table. " +
-    "The processor is record based so the schema that is used is driven by the RecordReader. Attributes that are not matched to the target schema " +
-    "are skipped. Exactly once delivery semantics are achieved via stream offsets.")
+        "The processor is record based so the schema that is used is driven by the RecordReader. Attributes that are not matched to the target schema " +
+        "are skipped. Exactly once delivery semantics are achieved via stream offsets.")
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
 @WritesAttributes({
-    @WritesAttribute(attribute = BigQueryAttributes.JOB_NB_RECORDS_ATTR, description = BigQueryAttributes.JOB_NB_RECORDS_DESC)
+        @WritesAttribute(attribute = BigQueryAttributes.JOB_NB_RECORDS_ATTR, description = BigQueryAttributes.JOB_NB_RECORDS_DESC)
 })
 public class PutBigQuery extends AbstractBigQueryProcessor {
 
@@ -121,70 +123,70 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
     private int recordBatchCount;
 
     public static final PropertyDescriptor PROJECT_ID = new PropertyDescriptor.Builder()
-        .fromPropertyDescriptor(AbstractBigQueryProcessor.PROJECT_ID)
-        .required(true)
-        .build();
+            .fromPropertyDescriptor(AbstractBigQueryProcessor.PROJECT_ID)
+            .required(true)
+            .build();
 
     public static final PropertyDescriptor BIGQUERY_API_ENDPOINT = new PropertyDescriptor.Builder()
-        .name("bigquery-api-endpoint")
-        .displayName("BigQuery API Endpoint")
-        .description("Can be used to override the default BigQuery endpoint. Default is "
-                + BigQueryWriteStubSettings.getDefaultEndpoint() + ". "
-                + "Format must be hostname:port.")
-        .addValidator(StandardValidators.HOSTNAME_PORT_LIST_VALIDATOR)
-        .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
-        .required(true)
-        .defaultValue(BigQueryWriteStubSettings.getDefaultEndpoint())
-        .build();
+            .name("bigquery-api-endpoint")
+            .displayName("BigQuery API Endpoint")
+            .description("Can be used to override the default BigQuery endpoint. Default is "
+                    + BigQueryWriteStubSettings.getDefaultEndpoint() + ". "
+                    + "Format must be hostname:port.")
+            .addValidator(StandardValidators.HOSTNAME_PORT_LIST_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
+            .required(true)
+            .defaultValue(BigQueryWriteStubSettings.getDefaultEndpoint())
+            .build();
 
     static final PropertyDescriptor TRANSFER_TYPE = new PropertyDescriptor.Builder()
-        .name(TRANSFER_TYPE_NAME)
-        .displayName("Transfer Type")
-        .description(TRANSFER_TYPE_DESC)
-        .required(true)
-        .defaultValue(STREAM_TYPE.getValue())
-        .allowableValues(STREAM_TYPE, BATCH_TYPE)
-        .build();
+            .name(TRANSFER_TYPE_NAME)
+            .displayName("Transfer Type")
+            .description(TRANSFER_TYPE_DESC)
+            .required(true)
+            .defaultValue(STREAM_TYPE.getValue())
+            .allowableValues(STREAM_TYPE, BATCH_TYPE)
+            .build();
 
     static final PropertyDescriptor APPEND_RECORD_COUNT = new PropertyDescriptor.Builder()
-        .name(APPEND_RECORD_COUNT_NAME)
-        .displayName("Append Record Count")
-        .description(APPEND_RECORD_COUNT_DESC)
-        .required(true)
-        .defaultValue("20")
-        .addValidator(StandardValidators.NON_EMPTY_EL_VALIDATOR)
-        .build();
+            .name(APPEND_RECORD_COUNT_NAME)
+            .displayName("Append Record Count")
+            .description(APPEND_RECORD_COUNT_DESC)
+            .required(true)
+            .defaultValue("20")
+            .addValidator(StandardValidators.NON_EMPTY_EL_VALIDATOR)
+            .build();
 
     public static final PropertyDescriptor RECORD_READER = new PropertyDescriptor.Builder()
-        .name(BigQueryAttributes.RECORD_READER_ATTR)
-        .displayName("Record Reader")
-        .description(BigQueryAttributes.RECORD_READER_DESC)
-        .identifiesControllerService(RecordReaderFactory.class)
-        .required(true)
-        .build();
+            .name(BigQueryAttributes.RECORD_READER_ATTR)
+            .displayName("Record Reader")
+            .description(BigQueryAttributes.RECORD_READER_DESC)
+            .identifiesControllerService(RecordReaderFactory.class)
+            .required(true)
+            .build();
 
     public static final PropertyDescriptor SKIP_INVALID_ROWS = new PropertyDescriptor.Builder()
-        .name(BigQueryAttributes.SKIP_INVALID_ROWS_ATTR)
-        .displayName("Skip Invalid Rows")
-        .description(BigQueryAttributes.SKIP_INVALID_ROWS_DESC)
-        .required(true)
-        .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
-        .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-        .defaultValue("false")
-        .build();
+            .name(BigQueryAttributes.SKIP_INVALID_ROWS_ATTR)
+            .displayName("Skip Invalid Rows")
+            .description(BigQueryAttributes.SKIP_INVALID_ROWS_DESC)
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .defaultValue("false")
+            .build();
 
     private static final List<PropertyDescriptor> DESCRIPTORS = List.of(
-        GCP_CREDENTIALS_PROVIDER_SERVICE,
-        PROJECT_ID,
-        BIGQUERY_API_ENDPOINT,
-        DATASET,
-        TABLE_NAME,
-        RECORD_READER,
-        TRANSFER_TYPE,
-        APPEND_RECORD_COUNT,
-        RETRY_COUNT,
-        SKIP_INVALID_ROWS,
-        PROXY_CONFIGURATION_SERVICE
+            GCP_CREDENTIALS_PROVIDER_SERVICE,
+            PROJECT_ID,
+            BIGQUERY_API_ENDPOINT,
+            DATASET,
+            TABLE_NAME,
+            RECORD_READER,
+            TRANSFER_TYPE,
+            APPEND_RECORD_COUNT,
+            RETRY_COUNT,
+            SKIP_INVALID_ROWS,
+            PROXY_CONFIGURATION_SERVICE
     );
 
     @Override
@@ -209,7 +211,7 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
     }
 
     @Override
-    public void onTrigger(ProcessContext context, ProcessSession session)  {
+    public void onTrigger(ProcessContext context, ProcessSession session) {
         FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
@@ -226,6 +228,12 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
         try {
             writeStream = createWriteStream(tableName);
             tableSchema = writeStream.getTableSchema();
+            getLogger().error("AE DEV TABLE SCHEMA FIELDS");
+            for (TableFieldSchema tableFieldSchema : tableSchema.getFieldsList()) {
+                String name = tableFieldSchema.getName();
+                String type = tableFieldSchema.getType().name();
+                getLogger().error(name + " has type " + type);
+            }
             protoDescriptor = BQTableSchemaToProtoDescriptor.convertBQTableSchemaToProtoDescriptor(tableSchema);
             streamWriter = createStreamWriter(writeStream.getName(), protoDescriptor, getGoogleCredentials(context), ProxyConfiguration.getConfiguration(context));
         } catch (Descriptors.DescriptorValidationException | IOException e) {
@@ -241,7 +249,7 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
         int recordNumWritten;
         try {
             try (InputStream in = session.read(flowFile);
-                    RecordReader reader = readerFactory.createRecordReader(flowFile, in, getLogger())) {
+                 RecordReader reader = readerFactory.createRecordReader(flowFile, in, getLogger())) {
                 recordNumWritten = writeRecordsToStream(reader, protoDescriptor, skipInvalidRows, tableSchema);
             }
             flowFile = session.putAttribute(flowFile, BigQueryAttributes.JOB_NB_RECORDS_ATTR, Integer.toString(recordNumWritten));
@@ -253,6 +261,7 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
     }
 
     private int writeRecordsToStream(RecordReader reader, Descriptors.Descriptor descriptor, boolean skipInvalidRows, TableSchema tableSchema) throws Exception {
+
         Record currentRecord;
         int offset = 0;
         int recordNum = 0;
@@ -281,10 +290,17 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
     }
 
     private DynamicMessage recordToProtoMessage(Record record, Descriptors.Descriptor descriptor, boolean skipInvalidRows, TableSchema tableSchema) {
-        Map<String, Object> valueMap = convertMapRecord(record.toMap());
+
+
+        getLogger().error("recordToProtoMessage CALLING convertMapRecord");
+        Map<String, Object> valueMap = convertMapRecord(record.toMap(), tableSchema, getLogger());
+        /// CONVERT DATES HERE?
+
+        ///
+
         DynamicMessage message = null;
         try {
-            message = ProtoUtils.createMessage(descriptor, valueMap, tableSchema);
+            message = ProtoUtils.createMessage(descriptor, valueMap, tableSchema, getLogger());
         } catch (RuntimeException e) {
             getLogger().error("Cannot convert record to message", e);
             if (!skipInvalidRows) {
@@ -325,10 +341,10 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
                 writeClient.finalizeWriteStream(streamName);
 
                 BatchCommitWriteStreamsRequest commitRequest =
-                    BatchCommitWriteStreamsRequest.newBuilder()
-                        .setParent(parentTable)
-                        .addWriteStreams(streamName)
-                        .build();
+                        BatchCommitWriteStreamsRequest.newBuilder()
+                                .setParent(parentTable)
+                                .addWriteStreams(streamName)
+                                .build();
 
                 BatchCommitWriteStreamsResponse commitResponse = writeClient.batchCommitWriteStreams(commitRequest);
 
@@ -379,8 +395,8 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
             }
 
             error.compareAndSet(null, Optional.ofNullable(Exceptions.toStorageException(throwable))
-                .map(RuntimeException.class::cast)
-                .orElse(new RuntimeException(throwable)));
+                    .map(RuntimeException.class::cast)
+                    .orElse(new RuntimeException(throwable)));
 
             getLogger().error("Failure during appending data", throwable);
             inflightRequestCount.arriveAndDeregister();
@@ -390,9 +406,9 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
     private WriteStream createWriteStream(TableName tableName) {
         WriteStream.Type type = isBatch() ? WriteStream.Type.PENDING : WriteStream.Type.COMMITTED;
         CreateWriteStreamRequest createWriteStreamRequest = CreateWriteStreamRequest.newBuilder()
-            .setParent(tableName.toString())
-            .setWriteStream(WriteStream.newBuilder().setType(type).build())
-            .build();
+                .setParent(tableName.toString())
+                .setWriteStream(WriteStream.newBuilder().setType(type).build())
+                .build();
 
         return writeClient.createWriteStream(createWriteStreamRequest);
     }
@@ -478,21 +494,49 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
         }
     }
 
-    private static Map<String, Object> convertMapRecord(Map<String, Object> map) {
+    private static Map<String, Object> convertMapRecord(Map<String, Object> map, TableSchema tableSchema) {
+        return convertMapRecord(map, tableSchema, null);
+    }
+
+    private static Map<String, Object> convertMapRecord(Map<String, Object> map, TableSchema tableSchema, ComponentLog log) {
+
+        if (log != null) {
+            log.error("CONVERT MAP RECORD");
+        }
+
+        Map<String, TableFieldSchema> schemaMap = new HashMap<>();
+        for (TableFieldSchema tableFieldSchema : tableSchema.getFieldsList()) {
+            schemaMap.put(tableFieldSchema.getName(), tableFieldSchema);
+        }
+
         Map<String, Object> result = new HashMap<>();
         for (String key : map.keySet()) {
             Object obj = map.get(key);
+            TableFieldSchema tableFieldSchema = schemaMap.get(key);
+
+
+            if (log != null) {
+                log.error("Column: " + key + " has type " + obj.getClass().getName());
+            }
+            if (obj instanceof String && tableFieldSchema.getType() == TableFieldSchema.Type.DATE) {
+                log.error("Fixing DATE!! " + obj);
+                result.put(key, (int) (System.currentTimeMillis() / 1000));
+                //result.put(key, Date.valueOf((String) obj).getTime());
+                continue;
+            }
+
             // BigQuery is not case sensitive on the column names but the protobuf message
             // expect all column names to be lower case
             key = key.toLowerCase();
+
             if (obj instanceof MapRecord) {
-                result.put(key, convertMapRecord(((MapRecord) obj).toMap()));
+                result.put(key, convertMapRecord(((MapRecord) obj).toMap(), tableSchema, log));
             } else if (obj instanceof Object[]
-                && ((Object[]) obj).length > 0
-                && ((Object[]) obj)[0] instanceof MapRecord) {
+                    && ((Object[]) obj).length > 0
+                    && ((Object[]) obj)[0] instanceof MapRecord) {
                 List<Map<String, Object>> lmapr = new ArrayList<>();
                 for (Object mapr : ((Object[]) obj)) {
-                    lmapr.add(convertMapRecord(((MapRecord) mapr).toMap()));
+                    lmapr.add(convertMapRecord(((MapRecord) mapr).toMap(), tableSchema, log));
                 }
                 result.put(key, lmapr);
             } else if (obj instanceof Timestamp) {
@@ -500,9 +544,9 @@ public class PutBigQuery extends AbstractBigQueryProcessor {
             } else if (obj instanceof Time) {
                 LocalTime time = ((Time) obj).toLocalTime();
                 org.threeten.bp.LocalTime localTime = org.threeten.bp.LocalTime.of(
-                    time.getHour(),
-                    time.getMinute(),
-                    time.getSecond());
+                        time.getHour(),
+                        time.getMinute(),
+                        time.getSecond());
                 result.put(key, CivilTimeEncoder.encodePacked64TimeMicros(localTime));
             } else if (obj instanceof Date) {
                 result.put(key, (int) ((Date) obj).toLocalDate().toEpochDay());

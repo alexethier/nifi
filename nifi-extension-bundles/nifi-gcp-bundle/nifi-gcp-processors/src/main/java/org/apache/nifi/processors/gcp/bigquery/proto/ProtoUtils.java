@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.storage.v1.TableFieldSchema.Type;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
+import org.apache.nifi.logging.ComponentLog;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -29,86 +30,112 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
-* Util class for protocol buffer messaging
-*/
+ * Util class for protocol buffer messaging
+ */
 public class ProtoUtils {
 
-   public static DynamicMessage createMessage(Descriptors.Descriptor descriptor, Map<String, Object> valueMap, TableSchema tableSchema) {
-       final DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+    public static DynamicMessage createMessage(Descriptors.Descriptor descriptor, Map<String, Object> valueMap, TableSchema tableSchema) {
+        return createMessage(descriptor, valueMap, tableSchema, null);
+    }
 
-       for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
-           final String name = field.getName();
-           Object value = valueMap.get(name);
-           if (value == null) {
-               continue;
-           }
+    public static DynamicMessage createMessage(Descriptors.Descriptor descriptor, Map<String, Object> valueMap, TableSchema tableSchema, ComponentLog log) {
 
-           switch (field.getType()) {
-           case MESSAGE:
-               if (field.isRepeated()) {
-                   Collection collection = value.getClass().isArray() ? Arrays.asList((Object[]) value) : (Collection) value;
-                   collection.forEach(act -> builder.addRepeatedField(field, createMessage(field.getMessageType(), (Map<String, Object>) act, tableSchema)));
-               } else {
-                   builder.setField(field, createMessage(field.getMessageType(), (Map<String, Object>) value, tableSchema));
-               }
-               break;
+        final DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+        log.error("AEDEV !!!!!!!!!!!!");
 
-           // INT64 with alias INT, SMALLINT, INTEGER, BIGINT, TINYINT, BYTEINT
-           case INT64:
-               // Integer in the bigquery table schema maps back to INT64 which is considered to be Long on Java side:
-               // https://developers.google.com/protocol-buffers/docs/proto3
-               if (value instanceof Integer) {
-                   value = Long.valueOf((Integer) value);
-               }
+        int i = 0;
+        for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
 
-               setField(value, field, builder);
-               break;
+            final String name = field.getName();
+            Object value = valueMap.get(name);
 
-           // FLOAT64
-           case DOUBLE:
-               if (value instanceof Float) {
-                   value = Double.valueOf(value.toString());
-               }
-               setField(value, field, builder);
-               break;
+            if (log != null) {
+                log.error(name + " has type: " + field.getType());
+            }
 
-           // matches NUMERIC and BIGNUMERIC types in BigQuery
-           // BQTableSchemaToProtoDescriptor.class
-           case BYTES:
-               if (value instanceof Integer) {
-                   value = new BigDecimal((int) value);
-               } else if (value instanceof Long) {
-                   value = new BigDecimal((long) value);
-               } else if (value instanceof Float || value instanceof Double) {
-                   value = new BigDecimal(value.toString());
-               }
+            if (value == null) {
+                continue;
+            }
 
-               if (value instanceof BigDecimal) {
-                   if (tableSchema.getFields(field.getIndex()).getType().equals(Type.BIGNUMERIC)) {
-                       value = BigDecimalByteStringEncoder.encodeToBigNumericByteString((BigDecimal) value);
-                   } else if (tableSchema.getFields(field.getIndex()).getType().equals(Type.NUMERIC)) {
-                       value = BigDecimalByteStringEncoder.encodeToNumericByteString((BigDecimal) value);
-                   }
-               }
+            switch (field.getType()) {
+                case MESSAGE:
+                    if (field.isRepeated()) {
+                        Collection collection = value.getClass().isArray() ? Arrays.asList((Object[]) value) : (Collection) value;
+                        collection.forEach(act -> builder.addRepeatedField(field, createMessage(field.getMessageType(), (Map<String, Object>) act, tableSchema)));
+                    } else {
+                        builder.setField(field, createMessage(field.getMessageType(), (Map<String, Object>) value, tableSchema));
+                    }
+                    break;
 
-               setField(value, field, builder);
-               break;
+                // INT64 with alias INT, SMALLINT, INTEGER, BIGINT, TINYINT, BYTEINT
+                case INT64:
+                    // Integer in the bigquery table schema maps back to INT64 which is considered to be Long on Java side:
+                    // https://developers.google.com/protocol-buffers/docs/proto3
+                    if (value instanceof Integer) {
+                        value = Long.valueOf((Integer) value);
+                    }
 
-           default:
-               setField(value, field, builder);
-               break;
-           }
-       }
+                    setField(value, field, builder);
+                    break;
 
-       return builder.build();
-   }
+                // FLOAT64
+                case DOUBLE:
+                    if (value instanceof Float) {
+                        value = Double.valueOf(value.toString());
+                    }
+                    setField(value, field, builder);
+                    break;
 
-   private static void setField(final Object value, final Descriptors.FieldDescriptor field, final DynamicMessage.Builder builder) {
-       if (field.isRepeated()) {
-           Collection collection = value.getClass().isArray() ? Arrays.asList((Object[]) value) : (Collection) value;
-           collection.forEach(act -> builder.addRepeatedField(field, act));
-       } else {
-           builder.setField(field, value);
-       }
-   }
+                // matches NUMERIC and BIGNUMERIC types in BigQuery
+                // BQTableSchemaToProtoDescriptor.class
+                case BYTES:
+                    if (value instanceof Integer) {
+                        value = new BigDecimal((int) value);
+                    } else if (value instanceof Long) {
+                        value = new BigDecimal((long) value);
+                    } else if (value instanceof Float || value instanceof Double) {
+                        value = new BigDecimal(value.toString());
+                    }
+
+                    if (value instanceof BigDecimal) {
+                        if (tableSchema.getFields(field.getIndex()).getType().equals(Type.BIGNUMERIC)) {
+                            value = BigDecimalByteStringEncoder.encodeToBigNumericByteString((BigDecimal) value);
+                        } else if (tableSchema.getFields(field.getIndex()).getType().equals(Type.NUMERIC)) {
+                            value = BigDecimalByteStringEncoder.encodeToNumericByteString((BigDecimal) value);
+                        }
+                    }
+
+                    setField(value, field, builder);
+                    break;
+                case INT32:
+                    if (log != null) {
+                        log.error("VALUE OF INT32 TYPE: " + value + " has table schema type: " + tableSchema.getFields(i).getType().name());
+                    }
+
+                    if (tableSchema.getFields(i).getType() == Type.DATE) {
+                        setField(value, field, builder);
+                        //setField(Date.valueOf(value));
+                    } else {
+                        setField(value, field, builder);
+                    }
+
+                    break;
+                default:
+                    setField(value, field, builder);
+                    break;
+            }
+            i++;
+        }
+
+        return builder.build();
+    }
+
+    private static void setField(final Object value, final Descriptors.FieldDescriptor field, final DynamicMessage.Builder builder) {
+        if (field.isRepeated()) {
+            Collection collection = value.getClass().isArray() ? Arrays.asList((Object[]) value) : (Collection) value;
+            collection.forEach(act -> builder.addRepeatedField(field, act));
+        } else {
+            builder.setField(field, value);
+        }
+    }
 }
