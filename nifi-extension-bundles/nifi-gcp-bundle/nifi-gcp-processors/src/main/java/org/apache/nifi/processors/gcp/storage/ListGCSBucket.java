@@ -100,6 +100,12 @@ import static org.apache.nifi.processors.gcp.storage.StorageAttributes.ENCRYPTIO
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.ENCRYPTION_SHA256_DESC;
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.ETAG_ATTR;
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.ETAG_DESC;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_OWNER_ATTR;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_OWNER_DESC;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_READER_ATTR;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_READER_DESC;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_WRITER_ATTR;
+import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GCS_ACL_WRITER_DESC;
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GENERATED_ID_ATTR;
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GENERATED_ID_DESC;
 import static org.apache.nifi.processors.gcp.storage.StorageAttributes.GENERATION_ATTR;
@@ -164,6 +170,9 @@ import static org.apache.nifi.processors.gcp.storage.StorageAttributes.URI_DESC;
         @WritesAttribute(attribute = METAGENERATION_ATTR, description = METAGENERATION_DESC),
         @WritesAttribute(attribute = OWNER_ATTR, description = OWNER_DESC),
         @WritesAttribute(attribute = OWNER_TYPE_ATTR, description = OWNER_TYPE_DESC),
+        @WritesAttribute(attribute = GCS_ACL_OWNER_ATTR, description = GCS_ACL_OWNER_DESC),
+        @WritesAttribute(attribute = GCS_ACL_WRITER_ATTR, description = GCS_ACL_WRITER_DESC),
+        @WritesAttribute(attribute = GCS_ACL_READER_ATTR, description = GCS_ACL_READER_DESC),
         @WritesAttribute(attribute = URI_ATTR, description = URI_DESC)
 })
 @DefaultSchedule(strategy = SchedulingStrategy.TIMER_DRIVEN, period = "1 min")

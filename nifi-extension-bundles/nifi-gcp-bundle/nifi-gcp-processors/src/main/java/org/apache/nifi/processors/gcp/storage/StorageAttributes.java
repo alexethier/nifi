@@ -22,7 +22,6 @@ import com.google.cloud.storage.BlobInfo;
 import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.util.StringUtils;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -107,9 +106,12 @@ public class StorageAttributes {
     public static final String URI_ATTR = "gcs.uri";
     public static final String URI_DESC = "The URI of the object as a string.";
 
-    public static final String GCS_ACL_OWNER = "gcs.acl.owner";
-    public static final String GCS_ACL_WRITER = "gcs.acl.writer";
-    public static final String GCS_ACL_READER = "gcs.acl.reader";
+    public static final String GCS_ACL_OWNER_ATTR = "gcs.acl.owner";
+    public static final String GCS_ACL_OWNER_DESC = "A comma-delimited list of ACL entities that have owner access to the object.";
+    public static final String GCS_ACL_WRITER_ATTR = "gcs.acl.writer";
+    public static final String GCS_ACL_WRITER_DESC = "A comma-delimited list of ACL entities that have write access to the object.";
+    public static final String GCS_ACL_READER_ATTR = "gcs.acl.reader";
+    public static final String GCS_ACL_READER_DESC = "A comma-delimited list of ACL entities that have read access to the object.";
 
     public static Map<String, String> createAttributes(final Blob blob) {
         final Map<String, String> attributes = new HashMap<>();
@@ -165,11 +167,11 @@ public class StorageAttributes {
             for (final Map.Entry<Acl.Role, List<String>> roleEntry : aclRoles.entrySet()) {
                 final String entities = StringUtils.join(roleEntry.getValue(), ",");
                 if (roleEntry.getKey().equals(OWNER)) {
-                    addAttribute(attributes, GCS_ACL_OWNER, entities);
+                    addAttribute(attributes, GCS_ACL_OWNER_ATTR, entities);
                 } else if (roleEntry.getKey().equals(WRITER)) {
-                    addAttribute(attributes, GCS_ACL_WRITER, entities);
+                    addAttribute(attributes, GCS_ACL_WRITER_ATTR, entities);
                 } else if (roleEntry.getKey().equals(READER)) {
-                    addAttribute(attributes, GCS_ACL_READER, entities);
+                    addAttribute(attributes, GCS_ACL_READER_ATTR, entities);
                 }
             }
         }
